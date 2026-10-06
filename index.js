@@ -1,70 +1,45 @@
-const express = require("express");
-const { createClient } = require("@supabase/supabase-js");
-const app = express();
-app.use(express.json());
+const express = require('express')
+const { createClient } = require('@supabase/supabase-js')
 
-const SUPABASE_URL = "https://rergtekkabatdaqyzfjs.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_9XdB00d5-VrNQkrLAhZAVw__yiYZ7MU";
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const app = express()
+app.use(express.json())
 
-console.log("Server avviato. Supabase config:", SUPABASE_URL);
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+)
 
-app.post("/", async (req, res) => {
-    console.log("📤 POST ricevuto, body raw:", JSON.stringify(req.body));
-    const { victim, lat, lon } = req.body;
-    console.log("📤 POST parsed:", victim, lat, lon);
-    if (!victim || lat == null || lon == null) {
-        console.log("❌ POST bad request: parametri mancanti");
-        return res.status(400).json({ error: "bad request" });
+app.post('/', async (req, res) => {
+  const body = req.body
+  if (body && body.victim && body.lat && body.lon) {
+    const { error } = await supabase
+      .from('position')
+      .upsert({
+        victim: body.victim,
+        lat: body.lat,
+        lon: body.lon,
+        ts: body.ts || Date.now()
+      })
+    if (error) {
+      res.status(500).json({ error: 'db error' })
+    } else {
+      res.json({ ok: true })
     }
-    try {
-        console.log("🔍 Supabase upsert per victim:", victim);
-        const { error } = await supabase
-            .from("position")
-            .upsert({ victim, lat, lon, ts: Date.now() }, { onConflict: "victim" });
-        if (error) {
-            console.error("❌ Supabase POST error:", error);
-            throw error;
-        }
-        console.log("✅ POST success, rispondo ok");
-        res.json({ ok: true, ts: Date.now() });
-    } catch (e) {
-        console.error("💥 POST exception:", e);
-        res.status(500).json({ error: "database error" });
-    }
-});
+  } else {
+    res.status(400).json({ error: 'bad request' })
+  }
+})
 
-app.get("/", async (req, res) => {
-    console.log("📥 GET query params:", JSON.stringify(req.query));
-    const victim = req.query.victim;
-    console.log("🔍 GET victim raw:", victim, "type:", typeof victim);
-    if (!victim) {
-        return res.status(400).json({ error: "missing victim param" });
-    }
-    try {
-        console.log("🔍 Supabase select per victim:", victim);
-        const { data, error } = await supabase
-            .from("position")
-            .select("lat, lon, ts")
-            .eq("victim", victim)
-            .single();
-        console.log("🔍 Supabase response data:", data, "error:", error);
-        if (error) {
-            console.log("❌ Supabase GET error:", error);
-            if (error.code === "PGRST116") {
-                return res.status(404).json({ error: "not found" });
-            }
-            throw error;
-        }
-        console.log("✅ GET success, data:", data);
-        res.json(data);
-    } catch (e) {
-        console.error("💥 GET exception:", e);
-        res.status(500).json({ error: "database error" });
-    }
-});
+app.get('/', async (req, res) => {
+  const victim = req.query.victim
+  if (!victim) return res.json({ error: 'not found' })
+  const { data, error } = await supabase
+    .from('position')
+    .select('victim, lat, lon, ts')
+    .eq('victim', victim)
+    .maybeSingle()
+  if (error) return res.status(500).json({ error: 'db error' })
+  res.json(data || { error: 'not found' })
+})
 
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-    console.log(`ZeroTrack Supabase server on port ${PORT}`);
-});
+app.listen(process.env.PORT || 8080)

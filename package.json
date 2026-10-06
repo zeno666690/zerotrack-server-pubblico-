@@ -6,9 +6,10 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "@supabase/supabase-js": "^2.47.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=16"
   }
 }

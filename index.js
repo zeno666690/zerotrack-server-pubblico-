@@ -8,6 +8,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_9XdB00d5-VrNQkrLAhZAVw__yiYZ7MU";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 app.post("/", async (req, res) => {
+    console.log("POST body:", JSON.stringify(req.body));
     const { victim, lat, lon } = req.body;
     if (!victim || lat == null || lon == null) {
         return res.status(400).json({ error: "bad request" });
@@ -25,7 +26,10 @@ app.post("/", async (req, res) => {
 });
 
 app.get("/", async (req, res) => {
+    console.log("GET query params:", JSON.stringify(req.query));
+    console.log("GET headers:", JSON.stringify(req.headers));
     const victim = req.query.victim;
+    console.log("GET victim raw:", victim, "type:", typeof victim);
     if (!victim) {
         return res.status(400).json({ error: "missing victim param" });
     }
@@ -36,11 +40,13 @@ app.get("/", async (req, res) => {
             .eq("victim", victim)
             .single();
         if (error) {
-            if (error.code === "PGRST116") { // no rows
+            console.log("Supabase error:", error);
+            if (error.code === "PGRST116") {
                 return res.status(404).json({ error: "not found" });
             }
             throw error;
         }
+        console.log("Supabase data:", data);
         res.json(data);
     } catch (e) {
         console.error("Supabase GET error:", e);

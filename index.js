@@ -1,18 +1,8 @@
-const express = require('express')
-const { createClient } = require('@supabase/supabase-js')
-
-const app = express()
-app.use(express.json())
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-)
-
 app.post('/', async (req, res) => {
   const body = req.body
+  console.log('POST:', body)
   if (body && body.victim && body.lat && body.lon) {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('position')
       .upsert({
         victim: body.victim,
@@ -20,10 +10,11 @@ app.post('/', async (req, res) => {
         lon: body.lon,
         ts: body.ts || Date.now()
       })
+    console.log('upsert result:', { data, error })
     if (error) {
-      res.status(500).json({ error: 'db error' })
+      res.status(500).json({ error: 'db error', details: error.message })
     } else {
-      res.json({ ok: true })
+      res.json({ ok: true, ts: body.ts || Date.now() })
     }
   } else {
     res.status(400).json({ error: 'bad request' })
@@ -32,14 +23,14 @@ app.post('/', async (req, res) => {
 
 app.get('/', async (req, res) => {
   const victim = req.query.victim
-  if (!victim) return res.json({ error: 'not found' })
+  console.log('GET victim:', victim)
+  if (!victim) return res.json({ error: 'missing victim param' })
   const { data, error } = await supabase
     .from('position')
     .select('victim, lat, lon, ts')
     .eq('victim', victim)
     .maybeSingle()
-  if (error) return res.status(500).json({ error: 'db error' })
+  console.log('select result:', { data, error })
+  if (error) return res.status(500).json({ error: 'db error', details: error.message })
   res.json(data || { error: 'not found' })
 })
-
-app.listen(process.env.PORT || 8080)
